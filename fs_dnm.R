@@ -6,7 +6,7 @@ library(data.table)
 #'# data loading
 dat <- fread("exp1_data_behavior.csv", sep = ",", header = T)
 dat <- mutate(dat, Corr = ifelse(ChosenITM == CorrectITM, 1, 0))
-dat <- subset(dat, dat$participant != "sub01")
+#dat <- subset(dat, dat$participant != "sub01")
 dat <- na.omit(dat)
 
 
@@ -92,4 +92,4 @@ acc <- cbind(acc, prediction)
 acc$pred <- as.numeric(acc$pred)
 
 ggplot(acc) + geom_point(aes(x = Val3, y = Accuracy, color = participant)) +
-    geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.65, 0.9)
+    geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.5, 0.9)
