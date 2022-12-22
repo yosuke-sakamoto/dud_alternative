@@ -16,9 +16,9 @@ fs_dnm <- function(Val3, Corr) {
     params <- list("Val3" = Val3, "Corr" = Corr) # input vector
     
     fit <- suppressWarnings(optim(par = guess, fn = deviance, gr = NULL, method = "L-BFGS-B", parameters = params,
-                                  lower = c(0.001, 2.22 * 10e-16), upper = c(20, 10),
+                                  lower = c(0.001, -5), upper = c(20, 5),
                                   control = list("maxit" = 100000,
-                                                 "parscale" = c(0.005, 0.0002))))
+                                                 "parscale" = c(0.005, 0.0002)))) # 0.03, 0.002
     
     est <- data.frame(sH = fit$par[1], w = fit$par[2], dev = fit$value)
     return(est)
@@ -70,12 +70,12 @@ for (subj in unique(fits$sub)) {
     f <- subset(fits, fits$sub == subj)
     
     pred <- c(
-    exp(1 / (f[1] + f[2] * 1.90)) / ( exp(1 / (f[1] + f[2] * 1.90)) + exp(0.9 / (f[1] + f[2] * 1.90)) + exp(0 / (f[1] + f[2] * 1.90)) ),
-    exp(1 / (f[1] + f[2] * 2.17)) / ( exp(1 / (f[1] + f[2] * 2.17)) + exp(0.9 / (f[1] + f[2] * 2.17)) + exp(0.27 / (f[1] + f[2] * 2.17)) ),
-    exp(1 / (f[1] + f[2] * 2.35)) / ( exp(1 / (f[1] + f[2] * 2.35)) + exp(0.9 / (f[1] + f[2] * 2.35)) + exp(0.45 / (f[1] + f[2] * 2.35)) ),
-    exp(1 / (f[1] + f[2] * 2.53)) / ( exp(1 / (f[1] + f[2] * 2.53)) + exp(0.9 / (f[1] + f[2] * 2.53)) + exp(0.63 / (f[1] + f[2] * 2.53)) ),
-    exp(1 / (f[1] + f[2] * 2.66)) / ( exp(1 / (f[1] + f[2] * 2.66)) + exp(0.9 / (f[1] + f[2] * 2.66)) + exp(0.76 / (f[1] + f[2] * 2.66)) ),
-    exp(1 / (f[1] + f[2] * 2.76)) / ( exp(1 / (f[1] + f[2] * 2.76)) + exp(0.9 / (f[1] + f[2] * 2.76)) + exp(0.86 / (f[1] + f[2] * 2.76)) ))
+        exp(1 / (f[1] + f[2] * 1.90)) / ( exp(1 / (f[1] + f[2] * 1.90)) + exp(0.9 / (f[1] + f[2] * 1.90)) + exp(0 / (f[1] + f[2] * 1.90)) ),
+        exp(1 / (f[1] + f[2] * 2.17)) / ( exp(1 / (f[1] + f[2] * 2.17)) + exp(0.9 / (f[1] + f[2] * 2.17)) + exp(0.27 / (f[1] + f[2] * 2.17)) ),
+        exp(1 / (f[1] + f[2] * 2.35)) / ( exp(1 / (f[1] + f[2] * 2.35)) + exp(0.9 / (f[1] + f[2] * 2.35)) + exp(0.45 / (f[1] + f[2] * 2.35)) ),
+        exp(1 / (f[1] + f[2] * 2.53)) / ( exp(1 / (f[1] + f[2] * 2.53)) + exp(0.9 / (f[1] + f[2] * 2.53)) + exp(0.63 / (f[1] + f[2] * 2.53)) ),
+        exp(1 / (f[1] + f[2] * 2.66)) / ( exp(1 / (f[1] + f[2] * 2.66)) + exp(0.9 / (f[1] + f[2] * 2.66)) + exp(0.76 / (f[1] + f[2] * 2.66)) ),
+        exp(1 / (f[1] + f[2] * 2.76)) / ( exp(1 / (f[1] + f[2] * 2.76)) + exp(0.9 / (f[1] + f[2] * 2.76)) + exp(0.86 / (f[1] + f[2] * 2.76)) ))
     
     pred <- as.numeric(pred)
     pred <- as.data.frame(cbind(pred, subj))
@@ -90,9 +90,9 @@ acc <- subset(acc, acc$participant %in% unique(fits$sub))
 acc <- cbind(acc, prediction)
 acc$pred <- as.numeric(acc$pred)
 
-dnm <- ggplot(acc) + geom_point(aes(x = Val3, y = Accuracy, color = participant)) +
+dnm2 <- ggplot(acc) + geom_point(aes(x = Val3, y = Accuracy, color = participant)) +
     geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.5, 0.9)
-dnm
+dnm2
 
-fits_dnm <- fits
-fits_dnm <- mutate(fits_dnm, aic = dev + 4)
+fits_dnm2 <- fits
+fits_dnm2 <- mutate(fits_dnm2, aic = dev + 4)
