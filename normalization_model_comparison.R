@@ -3,6 +3,11 @@ library(tidyverse)
 library(cowplot)
 
 #'# model fitting
+#+ message = F
+#' logit: multinomial logit without normalization  
+#' dnm:   nomalization model under 0 < w < 10  
+#' dnm:   nomalization model under -5 < w < 5  
+
 source("fs_logit.R")
 source("fs_dnm.R")
 source("fs_dnm2.R")
@@ -13,6 +18,7 @@ fits_dnm2$model <- "dnm2"
 
 
 #'# fitting curves
+#+ message = F
 g1 <- plot_grid(logit + theme(legend.position = "none"),
                 dnm   + theme(legend.position = "none"),
                 dnm2  + theme(legend.position = "none"), 
@@ -22,6 +28,7 @@ g1
 
 
 #'# model comparison
+#+ message = F
 fittings <- as.data.frame(rbind(fits_logit, fits_dnm, fits_dnm2))
 fittings %>%
     group_by(model) %>%
@@ -30,6 +37,7 @@ fittings %>%
 
 
 #'# parameter distribution
+#+ message = F
 # dnm 
 ggplot(fits_dnm) + geom_histogram(aes(x = w)) + xlim(-0.1, 0.1)
 t.test(fits_dnm$w, mu = 0)

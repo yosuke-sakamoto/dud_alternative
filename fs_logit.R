@@ -90,7 +90,7 @@ acc <- cbind(acc, prediction)
 acc$pred <- as.numeric(acc$pred)
 
 logit <- ggplot(acc) + geom_point(aes(x = Val3, y = Accuracy, color = participant)) +
-    geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.5, 0.9) + ggtitle("logit")
+    geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.49, 0.9) + ggtitle("logit")
 logit
 
 fits_logit <- fits
