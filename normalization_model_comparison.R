@@ -6,7 +6,7 @@ library(cowplot)
 #+ message = F
 #' logit: multinomial logit without normalization  
 #' dnm:   nomalization model under 0 < w < 10  
-#' dnm:   nomalization model under -5 < w < 5  
+#' dnm2:   nomalization model under -5 < w < 5  
 
 source("fs_logit.R")
 source("fs_dnm.R")
