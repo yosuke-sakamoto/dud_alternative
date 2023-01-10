@@ -22,7 +22,7 @@ for (i in 1:length(files)) {
     dat <- rbind(dat, d)
 }
 
-dat <- subset(dat, dat$event == "fixation")
+dat <- subset(dat, dat$event == "fixation" & dat$Conf != 0)
 dat <- mutate(dat, target = apply(dat, 1, function(x){names(d)[13 + which.max(x[14:16])]}))
 dat <- mutate(dat, dud = apply(dat, 1, function(x){names(d)[13 + which.min(x[14:16])]}))
 dat$Condition <- as.factor(dat$Condition)
@@ -31,6 +31,8 @@ dat$dud <- fct_recode(dat$dud, up = "UVal", left = "LVal", right = "RVal")
 dat <- mutate(dat, fix = ifelse(item == target, "target", 
                          ifelse(item == dud, "dud",
                          ifelse(item == "noFix", "noFix", "distractor"))))
+dat <- mutate(dat, choice = ifelse(ChosenITM == target, "correct", 
+                            ifelse(ChosenITM == dud, "dud", "distractor")))
 
 
 #'# subject-wise fixation plot
@@ -76,7 +78,85 @@ Anova(f1)
 plot(ggpredict(f1, terms = c("fix", "Condition"), type = "fe"))
 
 
-#'# Stimulus-based fixation frequency
+#'# Stimulus-based fixation frequency (choice considered)
+dat %>%
+    group_by(Condition, fix, choice, id) %>%
+    summarise(n = n()) -> fixation2
+
+fixation2$fix <- as.factor(fixation2$fix)
+fixation2$fix <- factor(fixation2$fix, levels = c("target", "distractor", "dud", "noFix"))
+
+# correct choice
+subset(fixation2, fixation2$choice == "correct") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in correct trials")
+
+# distractor choice
+subset(fixation2, fixation2$choice == "distractor") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in distractor-chosen trials")
+
+# dud choice
+subset(fixation2, fixation2$choice == "dud") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in dud-chosen trials")
+
+
+#'# Stimulus-based fixation frequency (confidence considered)
+dat %>%
+    group_by(Condition, fix, choice, Conf, id) %>% 
+    summarise(n = n()) %>% ungroup() %>% complete(Condition, fix, Conf) -> fixation3
+
+fixation3$fix <- as.factor(fixation3$fix)
+fixation3$fix <- factor(fixation3$fix, levels = c("target", "distractor", "dud", "noFix"))
+
+# correct choice
+subset(fixation3, fixation3$choice == "correct") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    facet_grid(Conf ~ .) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in correct trials")
+
+
+#'# Stimulus-based fixation frequency (choice considered)
+dat %>%
+    group_by(Condition, fix, choice, id) %>%
+    summarise(n = n()) -> fixation2
+
+fixation2$fix <- as.factor(fixation2$fix)
+fixation2$fix <- factor(fixation2$fix, levels = c("target", "distractor", "dud", "noFix"))
+
+# correct choice
+subset(fixation2, fixation2$choice == "correct") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in correct trials")
+
+# distractor choice
+subset(fixation2, fixation2$choice == "distractor") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in distractor-chosen trials")
+
+# dud choice
+subset(fixation2, fixation2$choice == "dud") %>%
+    ungroup() %>% complete(Condition, fix, choice) %>%
+    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
+    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
+                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in dud-chosen trials")
+
+
+
+#'# Stimulus-based fixation proportion
 fixation_prop1 <- c()
 
 for (i in unique(fixation$id)) {
@@ -92,7 +172,7 @@ ggplot(fixation_prop1, aes(x = fix, y = prop, color = Condition)) + geom_violin(
     stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .9)) 
 
 
-#'# Stimulus-based fixation frequency (noFix excluded)
+# noFix excluded)
 fixation2 <- subset(fixation, fixation$fix != "noFix")
 fixation_prop2 <- c()
 
@@ -108,8 +188,7 @@ ggplot(fixation_prop2, aes(x = fix, y = prop, color = Condition)) + geom_violin(
     geom_point(position = position_dodge(width = .9)) +
     stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .9)) 
 
-
-#'# Stimulus-based fixation frequency (noFix excluded)
+# dud excluded
 fixation3 <- subset(fixation, fixation$fix == "target" | fixation$fix == "distractor")
 fixation_prop3 <- c()
 
