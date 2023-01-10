@@ -83,6 +83,9 @@ for (i in 1:length(files)){
       df_indiv$UVal[j] <- df_behav_indiv$UVal[df_indiv$trial[j]]
       df_indiv$LVal[j] <- df_behav_indiv$LVal[df_indiv$trial[j]]
       df_indiv$RVal[j] <- df_behav_indiv$RVal[df_indiv$trial[j]]
+      df_indiv$ChosenITM[j] <- df_behav_indiv$ChosenITM[df_indiv$trial[j]]
+      df_indiv$CorrectITM[j] <- df_behav_indiv$CorrectITM[df_indiv$trial[j]]
+      df_indiv$Conf[j] <- df_behav_indiv$Conf[df_indiv$trial[j]]
     }
     df_indiv$item <- unlist(map2(df_indiv$x, df_indiv$y, fixateItem))
     write.csv(df_indiv, paste(id_list[id_list_itr], "eyetracking.csv", sep = "_"), row.names = FALSE)
