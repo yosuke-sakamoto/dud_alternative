@@ -203,3 +203,49 @@ for (i in unique(fixation3$id)) {
 ggplot(fixation_prop3, aes(x = fix, y = prop, color = Condition)) + geom_violin() + 
     geom_point(position = position_dodge(width = .9)) +
     stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .9)) 
+
+
+#'# fixation dynamics
+df <- foreach(i = unique(dat$id), .packages = "tidyverse") %dopar% {
+    df1 <- c()
+    df2 <- subset(dat, dat$id == i)
+    for (j in unique(df2$trial)) {
+        df1 <- bind_rows(df1, df2 %>% filter(trial == j) %>% mutate(, nFix = row_number()))
+    }
+    print(df1)
+}
+
+dat2 <- c()
+for (i in unique(dat$id)) {
+    dat2 <- rbind(dat2, df[[i]])
+}
+
+
+dat2 %>%
+    group_by(id, fix, nFix) %>%
+    summarise(n = n()) -> fixs
+
+fix_prop <- c()
+for (i in unique(fixs$id)) {
+    for (j in 1:20) {
+        fixs %>% filter(, id == i & nFix == j) -> d
+        s <- sum(d$n)
+        fix_prop <- rbind(fix_prop, mutate(d, prop = n/s))
+    }
+}
+
+ggplot(fix_prop, aes(x = nFix, y = prop, color = fix)) + geom_point(position = position_dodge(width = .9)) +
+    stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9))
+
+
+fix_prop2 <- c()
+for (i in unique(fixs$id)) {
+    for (j in 1:20) {
+        fixs %>% filter(, id == i & nFix == j & fix != "noFix") -> d
+        s <- sum(d$n)
+        fix_prop2 <- rbind(fix_prop2, mutate(d, prop = n/s))
+    }
+}
+
+ggplot(fix_prop2, aes(x = nFix, y = prop, color = fix)) + geom_point(position = position_dodge(width = .9)) +
+    stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9))
