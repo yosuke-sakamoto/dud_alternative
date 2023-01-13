@@ -1,4 +1,4 @@
-#+ message = F 割合なら相対比較、回数なら・・・　ただし反応時間の長さにもよる
+#+ message = F
 library(tidyverse)
 library(data.table)
 library(ggh4x)
@@ -23,14 +23,13 @@ for (i in 1:length(files)) {
 }
 
 dat <- subset(dat, dat$event == "fixation" & dat$Conf != 0)
-dat <- mutate(dat, target = apply(dat, 1, function(x){names(d)[13 + which.max(x[14:16])]}))
-dat <- mutate(dat, dud = apply(dat, 1, function(x){names(d)[13 + which.min(x[14:16])]}))
-dat$Condition <- as.factor(dat$Condition)
+dat <- mutate(dat, target = apply(dat, 1, function(x){names(d)[14 + which.max(x[15:17])]}))
+dat <- mutate(dat, dud = apply(dat, 1, function(x){names(d)[14 + which.min(x[15:17])]}))
 dat$target <- fct_recode(dat$target, up = "UVal", left = "LVal", right = "RVal")
 dat$dud <- fct_recode(dat$dud, up = "UVal", left = "LVal", right = "RVal")
 dat <- mutate(dat, fix = ifelse(item == target, "target", 
                                 ifelse(item == dud, "dud",
-                                       ifelse(item == "noFix", "noFix", "distractor"))))
+                                       ifelse(item == "other", "other", "distractor"))))
 dat <- mutate(dat, choice = ifelse(ChosenITM == target, "correct", 
                                    ifelse(ChosenITM == dud, "dud", "distractor")))
 
@@ -45,18 +44,22 @@ df <- foreach(i = unique(dat$id), .packages = "tidyverse") %dopar% {
     print(df1)
 }
 dat2 <- c()
-for (i in length(unique(dat$id))) {
+for (i in unique(dat$id)) {
     dat2 <- rbind(dat2, df[[i]])
 }
 
-dat$Condition <- as.character(dat$Condition)
+
 #'# proportion of target fixation frequency within a trial
-df <- foreach(i = unique(dat$id), .packages = "tidyverse") %dopar% {
+df <- foreach(i = unique(dat2$id), .packages = "tidyverse") %dopar% {
     df1 <- c()
-    df2 <- subset(dat, dat$id == i)
+    df2 <- subset(dat2, dat2$id == i)
     for (j in unique(df2$trial)) {
         df2 %>% filter(, trial == j) -> d
-        df1 <- rbind(df1, cbind(nrow(subset(d, d$fix == "target"))/nrow(d), d$Condition, d$Conf, d$id, d$choice)[1, ])
+        df1 <- rbind(df1, cbind(nrow(d),
+                                nrow(subset(d, d$fix == "target")),
+                                nrow(subset(d, d$fix == "target"))/nrow(d),
+                                nrow(subset(d, d$fix == "target"))/nrow(subset(d, d$fix == "target" | d$fix == "distractor")),
+                                d$Condition, d$Conf, d$id, d$choice)[1, ])
     }
     print(df1)
 }
@@ -67,12 +70,17 @@ for (i in 1:length(unique(dat$id))) {
 }
 
 dat3 <- as.data.frame(dat3)
-colnames(dat3) <- c("p_target_fix", "Condition", "Conf", "id", "choice")
+colnames(dat3) <- c("n_fix", "n_target_fix", "p_target_fix", "p_target_fix2", "Condition", "Conf", "id", "choice")
 dat3$id <- as.numeric(dat3$id)
 
 
 #'# type2 roc (aggregated)
+dat3$n_fix <- as.numeric(dat3$n_fix)
+dat3$n_target_fix <- as.numeric(dat3$n_target_fix)
 dat3$p_target_fix <- as.numeric(dat3$p_target_fix)
+dat3$p_target_fix2 <- as.numeric(dat3$p_target_fix2)
+dat3$Conf <- as.numeric(dat3$Conf)
+
 q <- quantile(dat3$p_target_fix)
 roc2 <- c()
 auc2 <- c()
@@ -192,3 +200,23 @@ p6 <- ggplot(iauc2, aes(x = factor(j), y = auc, color = factor(j))) + geom_point
     stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .9)) +
     ylim(0.4, 0.9) + xlab("Condition") + ylab("Type2 AUC") + ggtitle("Type-2 AUC (p_target_fix)") + guides(color = F)
 p6
+
+
+
+#'# correlation with confidence
+dat4 <- subset(dat3, dat3$choice != "dud")
+
+p7 <- ggplot(dat4, aes(x = n_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
+    stat_smooth(method = "lm", size = 1.5) + xlim(0, 10) + ylim(0.5, 4.5) +
+    facet_wrap( ~ Condition) + ylab("Confidence")
+p7
+
+p8 <- ggplot(dat4, aes(x = n_target_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
+    stat_smooth(method = "lm", size = 1.5) + xlim(0, 4) + ylim(0.5, 4.5) +
+    facet_wrap( ~ Condition) + ylab("Confidence")
+p8
+
+p9 <- ggplot(dat4, aes(x = p_target_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
+    stat_smooth(method = "lm", size = 1.5) + xlim(0, 0.7) + ylim(0.5, 4.5) +
+    facet_wrap( ~ Condition) + ylab("Confidence")
+p9

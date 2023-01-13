@@ -132,7 +132,7 @@ p5 <- iroc2 %>%
     group_by(Condition, order) %>%
     summarise(mhit = mean(phit), mfa = mean(pfa), sehit = sd(phit)/sqrt(10), sefa = sd(pfa)/sqrt(10)) %>%
     ggplot(., aes(x = mfa, y = mhit, color = factor(Condition))) + geom_point() + geom_line() +
-    geom_errorbarh(aes(xmax = mfa + sefa, xmin = mfa - sefa)) +
+    geom_errorbarh(aes(xmax = mfa + sefa, xmin = mfa - sefa)) + xlim(0, 1) + ylim(0, 1) +
     geom_errorbar(aes(ymax = mhit + sehit, ymin = mhit - sehit)) + xlab("Type2 false alarm rate") + 
     ylab("Type2 hit rate") + ggtitle("Type-2 ROC")
 p5
