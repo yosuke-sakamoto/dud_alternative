@@ -5,33 +5,32 @@ library(data.table)
 
 #'# data loading
 dat <- fread("exp1_data_behavior.csv", sep = ",", header = T)
-dat <- mutate(dat, Corr = ifelse(ChosenITM == CorrectITM, 1, 0))
 #dat <- subset(dat, dat$participant != "sub01")
 dat <- na.omit(dat)
 
 
 #'# functions
-fs_dnm <- function(Val3, Corr) {
+fs_dnm <- function(val3, corr) {
     guess <- c(0.5, 2.22 * 10e-3)
-    params <- list("Val3" = Val3, "Corr" = Corr) # input vector
+    params <- list("val3" = val3, "corr" = corr) # input vector
     
     fit <- suppressWarnings(optim(par = guess, fn = deviance, gr = NULL, method = "L-BFGS-B", parameters = params,
                                   lower = c(0.001, -5), upper = c(20, 5),
                                   control = list("maxit" = 100000,
-                                                 "parscale" = c(0.005, 0.0002)))) # 0.03, 0.002
+                                                 "parscale" = c(0.004, 0.0002))))
     
     est <- data.frame(sH = fit$par[1], w = fit$par[2], dev = fit$value)
     return(est)
 }
 
 deviance <- function(x, parameters) {
-    Val3 <- parameters$Val3
-    Corr <- parameters$Corr
+    val3 <- parameters$val3
+    corr <- parameters$corr
     
     sH = x[1]
     w = x[2]
     
-    Vcu <- as.data.frame(cbind(100, 90, Val3))/100
+    Vcu <- as.data.frame(cbind(100, 90, val3))/100
     colnames(Vcu) <- c("V1", "V2", "V3")
     Vcu <- mutate(Vcu, meanVcu = ifelse(V3 > 0, (V1 + V2 + V3)/3, (V1 + V2)/2))
     Vcu <- mutate(Vcu, normalizer = sH + w * meanVcu)
@@ -39,9 +38,9 @@ deviance <- function(x, parameters) {
     M <- mutate(M, P = exp(V1) / (exp(V1) + exp(V2) + exp(V3)))
     M <- mutate(M, P = ifelse(P < .01, .01, P)) #adjustments to avoid punishing models too much for very unlikely predictions
     M <- mutate(M, P = ifelse(P > .99, .99, P)) #adjustments to avoid punishing models too much for very unlikely predictions
-    M$Corr <- Corr
+    M$corr <- corr
     
-    dev = -2 * sum(M$Corr * log(M$P) + (1 - M$Corr) * log(1 - M$P))
+    dev = -2 * sum(M$corr * log(M$P) + (1 - M$corr) * log(1 - M$P))
     return(dev)
 }
 
@@ -49,11 +48,11 @@ deviance <- function(x, parameters) {
 #'# individual fittings
 fits <- c()
 
-for (sub in unique(dat$participant)) {
-    d <- subset(dat, dat$participant == sub)
-    Val3 <- d$Val3
-    Corr <- d$Corr
-    f <- tryCatch(fs_dnm(Val3, Corr), error = function(e){f = cbind(NA, NA, NA)}) 
+for (sub in unique(dat$subj)) {
+    d <- subset(dat, dat$subj == sub)
+    val3 <- d$val3
+    corr <- d$corr
+    f <- tryCatch(fs_dnm(val3, corr), error = function(e){f = cbind(NA, NA, NA)}) 
     colnames(f) <- c("sH", "w", "dev")
     fits <- try(rbind(fits, cbind(f, sub)))
     fits <- na.omit(fits)
@@ -84,20 +83,20 @@ for (subj in unique(fits$sub)) {
         exp(1 / (f[1] + f[2] * m6)) / ( exp(1 / (f[1] + f[2] * m6)) + exp(0.9 / (f[1] + f[2] * m6)) + exp(0.86 / (f[1] + f[2] * m6)) ))
     
     pred <- as.numeric(pred)
-    pred <- as.data.frame(cbind(pred, subj))
+    pred <- as.data.frame(pred)
     prediction <- rbind(prediction, pred)
 }
 
 dat %>%
-    group_by(participant, Val3) %>%
-    summarise(Accuracy = mean(Corr)) -> acc
+    group_by(subj, val3) %>%
+    summarise(Accuracy = mean(corr)) -> acc
 
-acc <- subset(acc, acc$participant %in% unique(fits$sub))
+acc <- subset(acc, acc$subj %in% unique(fits$sub))
 acc <- cbind(acc, prediction)
 acc$pred <- as.numeric(acc$pred)
 
-mean_dnm <- ggplot(acc) + geom_point(aes(x = Val3, y = Accuracy, color = participant)) +
-    geom_line(mapping = aes(x = Val3, y = pred, color = participant)) + ylim(0.49, 0.9) + ggtitle("mean_dnm")
+mean_dnm <- ggplot(acc) + geom_point(aes(x = val3, y = Accuracy, color = subj)) +
+    geom_line(mapping = aes(x = val3, y = pred, color = subj)) + ylim(0.49, 0.9) + xlab("Dud stimulus") + ggtitle("mean_dnm") + guides(color = guide_legend(title = NULL))
 mean_dnm
 
 fits_mean_dnm <- fits

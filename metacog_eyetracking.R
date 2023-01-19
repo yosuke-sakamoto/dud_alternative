@@ -50,6 +50,10 @@ for (i in unique(dat$id)) {
 
 
 #'# proportion of target fixation frequency within a trial
+# dat2 <- subset(dat2, dat2$nFix != 1) # first fixation is almost always on the screen center
+# dat2 <- subset(dat2, dat2$nFix < 5) # subsetting trials
+# dat2 <- subset(dat2, dat2$fromTrialBegin < 1)
+
 df <- foreach(i = unique(dat2$id), .packages = "tidyverse") %dopar% {
     df1 <- c()
     df2 <- subset(dat2, dat2$id == i)
@@ -207,16 +211,16 @@ p6
 dat4 <- subset(dat3, dat3$choice != "dud")
 
 p7 <- ggplot(dat4, aes(x = n_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
-    stat_smooth(method = "lm", size = 1.5) + xlim(0, 10) + ylim(0.5, 4.5) +
+    stat_smooth(method = "lm", size = 1.5) + 
     facet_wrap( ~ Condition) + ylab("Confidence")
 p7
 
 p8 <- ggplot(dat4, aes(x = n_target_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
-    stat_smooth(method = "lm", size = 1.5) + xlim(0, 4) + ylim(0.5, 4.5) +
+    stat_smooth(method = "lm", size = 1.5) + 
     facet_wrap( ~ Condition) + ylab("Confidence")
 p8
 
 p9 <- ggplot(dat4, aes(x = p_target_fix, y = Conf, color = factor(choice))) + geom_jitter(alpha = 0.2, height = 0.2) +
-    stat_smooth(method = "lm", size = 1.5) + xlim(0, 0.7) + ylim(0.5, 4.5) +
+    stat_smooth(method = "lm", size = 1.5) + 
     facet_wrap( ~ Condition) + ylab("Confidence")
 p9
