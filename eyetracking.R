@@ -12,7 +12,7 @@ cl <- makeCluster(cores)
 registerDoParallel(cl)
 
 
-#'# data loading 参加者間の比較・個人差
+#'# data loading 参加者間の比較・個人差 確信度と判断の一次元化
 dat <- fread("exp1_data_eyetracking.csv", header = TRUE)
 dat <- subset(dat, dat$event == "fixation" & dat$conf != 0) # conf should be NA
 dat$condition <- as.factor(dat$condition)
@@ -54,7 +54,6 @@ dat %>%
     group_by(fixItem, condition, subj) %>%
     mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
     select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
     distinct() -> fd1
 
 # total fixation frequency
@@ -75,7 +74,6 @@ dat %>%
     group_by(fixItem, condition, subj) %>%
     mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
     select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
     distinct() -> fd2
 
 # total fixation frequency (AOI only)
@@ -95,7 +93,6 @@ dat %>%
     group_by(fixItem, condition, subj) %>%
     mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
     select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
     distinct() -> fd3
 
 # total fixation frequency 
@@ -114,7 +111,6 @@ dat %>%
     group_by(fixItem, condition, subj, chosenItem) %>%
     mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
     select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
     distinct() -> fd4
 
 ggplot(fd4) + geom_violin(aes(x = chosenItem, y = fpt)) + geom_point(aes(x = chosenItem, y = fpt)) +
@@ -128,20 +124,32 @@ ggplot(fd4) + geom_violin(aes(x = chosenItem, y = cfpt, color = fixItem)) +
 
 #'# Stimulus-based fixation frequency (confidence considered)
 dat %>%
-    group_by(Condition, fix, choice, Conf, id) %>% 
-    summarise(n = n()) %>% ungroup() %>% complete(Condition, fix, Conf) -> fixation3
+    group_by(subj, condition, conf) %>%
+    mutate(n_trials = n_distinct(trial), sum_fixations = n()) %>%
+    group_by(fixItem, condition, subj, conf) %>%
+    mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
+    select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
+    mutate(., proportion = n_fixations/sum_fixations) %>%
+    distinct() -> fd5
 
-fixation3$fix <- as.factor(fixation3$fix)
-fixation3$fix <- factor(fixation3$fix, levels = c("target", "distractor", "dud", "noFix"))
+ggplot(fd5) + geom_violin(aes(x = factor(conf), y = fpt)) + geom_point(aes(x = factor(conf), y = fpt)) +
+    ylab("Mean fixations per trial") + facet_wrap(. ~ condition)
 
-# correct choice
-subset(fixation3, fixation3$choice == "correct") %>%
-    ungroup() %>% complete(Condition, fix, choice) %>%
-    ggplot() + geom_point(position = position_dodge(width = .8), aes(x = fix, y = n, color = Condition)) +
-    facet_grid(Conf ~ .) +
-    stat_summary(fun.y = "mean", geom = "crossbar", position = position_dodge(width = .8), 
-                 mapping = aes(x = fix, y = n, color = Condition)) + ggtitle("fixation frequency in correct trials")
 
+#'# Stimulus-based fixation frequency (correctness and confidence considered)
+dat %>%
+    group_by(subj, condition, conf) %>%
+    mutate(n_trials = n_distinct(trial), sum_fixations = n()) %>%
+    group_by(fixItem, condition, subj, conf) %>%
+    mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
+    select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
+    mutate(., proportion = n_fixations/sum_fixations) %>%
+    distinct() -> fd5
+
+
+ggplot(fd6) + geom_violin(aes(x = factor(conf), y = fpt, color = factor(corr))) + 
+    geom_point(aes(x = factor(conf), y = fpt, color = factor(corr)), position = position_dodge(width = 0.85)) +
+    ylab("Mean fixations per trial") + facet_wrap(. ~ condition)
 
 
 
