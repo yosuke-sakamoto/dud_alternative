@@ -1,4 +1,5 @@
 #+ message = F
+# 参加者間の比較・個人差 確信度と判断の一次元化
 library(tidyverse)
 library(data.table)
 library(ggh4x)
@@ -12,7 +13,7 @@ cl <- makeCluster(cores)
 registerDoParallel(cl)
 
 
-#'# data loading 参加者間の比較・個人差 確信度と判断の一次元化
+#'# data loading
 dat <- fread("exp1_data_eyetracking.csv", header = TRUE)
 dat <- subset(dat, dat$event == "fixation" & dat$conf != 0) # conf should be NA
 dat$condition <- as.factor(dat$condition)
@@ -124,76 +125,129 @@ ggplot(fd4) + geom_violin(aes(x = chosenItem, y = cfpt, color = fixItem)) +
 
 #'# Stimulus-based fixation frequency (confidence considered)
 dat %>%
+    distinct(subj, condition, conf, trial, nFix, nFix_target) %>%
     group_by(subj, condition, conf) %>%
-    mutate(n_trials = n_distinct(trial), sum_fixations = n()) %>%
-    group_by(fixItem, condition, subj, conf) %>%
-    mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
-    select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
-    distinct() -> fd5
+    summarise(fpt = mean(nFix), tfpt = mean(nFix_target)) %>%
+    ungroup(subj, condition, conf) -> fd5
 
+# total fixations
 ggplot(fd5) + geom_violin(aes(x = factor(conf), y = fpt)) + geom_point(aes(x = factor(conf), y = fpt)) +
     ylab("Mean fixations per trial") + facet_wrap(. ~ condition)
 
+# total fixations
+ggplot(fd5) + geom_violin(aes(x = factor(conf), y = tfpt)) + geom_point(aes(x = factor(conf), y = tfpt)) +
+    ylab("Mean target fixations per trial") + facet_wrap(. ~ condition)
 
-#'# Stimulus-based fixation frequency (correctness and confidence considered)
+
+#'# Stimulus-based fixation frequency (choice and confidence considered)
 dat %>%
-    group_by(subj, condition, conf) %>%
-    mutate(n_trials = n_distinct(trial), sum_fixations = n()) %>%
-    group_by(fixItem, condition, subj, conf) %>%
-    mutate(n_fixations = n(), fpt = sum_fixations/n_trials, cfpt = n()/n_trials) %>%
-    select(sum_fixations, n_fixations, n_trials, fpt, cfpt) %>%
-    mutate(., proportion = n_fixations/sum_fixations) %>%
-    distinct() -> fd5
+    distinct(subj, condition, chosenItem, conf, trial, nFix, nFix_target) %>%
+    group_by(subj, condition, chosenItem, conf) %>%
+    summarise(fpt = mean(nFix), tfpt = mean(nFix_target)) %>%
+    ungroup(subj, condition, chosenItem, conf) %>%
+    complete(subj, condition, chosenItem, conf) -> fd6
+fd6$fpt[is.na(fd6$fpt)] <- 0
+fd6$tfpt[is.na(fd6$tfpt)] <- 0
 
-
-ggplot(fd6) + geom_violin(aes(x = factor(conf), y = fpt, color = factor(corr))) + 
-    geom_point(aes(x = factor(conf), y = fpt, color = factor(corr)), position = position_dodge(width = 0.85)) +
+# total fixations
+ggplot(fd6) + geom_violin(aes(x = factor(conf), y = fpt, color = chosenItem)) + 
+    geom_point(aes(x = factor(conf), y = fpt, color = chosenItem), position = position_dodge(width = 0.85)) +
     ylab("Mean fixations per trial") + facet_wrap(. ~ condition)
 
+# total target fixations
+ggplot(fd6) + geom_violin(aes(x = factor(conf), y = tfpt, color = chosenItem)) + 
+    geom_point(aes(x = factor(conf), y = tfpt, color = chosenItem), position = position_dodge(width = 0.85)) +
+    ylab("Mean target fixations per trial") + ylim(0, 2.5) + facet_wrap(. ~ condition)
 
 
 #'# fixation dynamics
-df <- foreach(i = unique(dat$id), .packages = "tidyverse") %dopar% {
-    df1 <- c()
-    df2 <- subset(dat, dat$id == i)
-    for (j in unique(df2$trial)) {
-        df1 <- bind_rows(df1, df2 %>% filter(trial == j) %>% mutate(, nFix = row_number()))
-    }
-    print(df1)
+prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+    dat %>% filter(event == "fixation" & countFix <= i) %>%
+        group_by(subj, condition) %>%
+        mutate(totalFix = n()) %>%
+        group_by(subj, fixItem, condition) %>%
+        mutate(fix = n(), pFix = n()/totalFix) %>%
+        select(subj, fixItem, fix, totalFix, pFix, condition) -> df
+    df$i <- i
+    print(distinct(df))
 }
 
-dat2 <- c()
-for (i in unique(dat$id)) {
-    dat2 <- rbind(dat2, df[[i]])
+p_dat <- c()
+for (i in 1:7) {
+    p_dat <- rbind(p_dat, prop[[i]])
 }
 
+p_dat %>%
+    ungroup(subj, fixItem, i) %>%
+    complete(subj, fixItem, i) -> p_dat
+p_dat$fix[is.na(p_dat$fix)] <- 0
+p_dat$pFix[is.na(p_dat$pFix)] <- 0
 
-dat2 %>%
-    group_by(id, fix, nFix) %>%
-    summarise(n = n()) -> fixs
+ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
+    stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9)) +
+    scale_x_continuous(breaks = seq(2, 7, 1), limits = c(1.5, 7.5))
+    + ylab("Cumulative fixation proportion") + facet_wrap(. ~ condition)
 
-fix_prop <- c()
-for (i in unique(fixs$id)) {
-    for (j in 1:20) {
-        fixs %>% filter(, id == i & nFix == j) -> d
-        s <- sum(d$n)
-        fix_prop <- rbind(fix_prop, mutate(d, prop = n/s))
-    }
+
+#'# fixation dynamics (exclude other fixations)
+prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+    dat %>% filter(event == "fixation" & fixItem != "other" & countFix <= i) %>%
+        group_by(subj, condition) %>%
+        mutate(totalFix = n()) %>%
+        group_by(subj, fixItem, condition) %>%
+        mutate(fix = n(), pFix = n()/totalFix) %>%
+        select(subj, fixItem, fix, totalFix, pFix, condition) -> df
+    df$i <- i
+    print(distinct(df))
 }
 
-ggplot(fix_prop, aes(x = nFix, y = prop, color = fix)) + geom_point(position = position_dodge(width = .9)) +
-    stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9))
-
-
-fix_prop2 <- c()
-for (i in unique(fixs$id)) {
-    for (j in 1:20) {
-        fixs %>% filter(, id == i & nFix == j & fix != "noFix") -> d
-        s <- sum(d$n)
-        fix_prop2 <- rbind(fix_prop2, mutate(d, prop = n/s))
-    }
+p_dat <- c()
+for (i in 1:7) {
+    p_dat <- rbind(p_dat, prop[[i]])
 }
 
-ggplot(fix_prop2, aes(x = nFix, y = prop, color = fix)) + geom_point(position = position_dodge(width = .9)) +
-    stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9))
+p_dat %>%
+    ungroup(subj, fixItem, i) %>%
+    complete(subj, fixItem, i) -> p_dat
+p_dat$fix[is.na(p_dat$fix)] <- 0
+p_dat$pFix[is.na(p_dat$pFix)] <- 0
+p_dat <- subset(p_dat, p_dat$fixItem != "other")
+
+ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(2, 7, 1), limits = c(1.5, 7.5)) + ylim(0, 0.7) + 
+    xlab("countFix") + ylab("Cumulative fixation proportion") + facet_wrap(. ~ condition)
+
+
+#'# fixation dynamics (exclude other and dud fixations)
+prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+    dat %>% filter(event == "fixation" & fixItem != "other" & fixItem != "dud" & countFix <= i) %>%
+        group_by(subj, condition) %>%
+        mutate(totalFix = n()) %>%
+        group_by(subj, fixItem, condition) %>%
+        mutate(fix = n(), pFix = n()/totalFix) %>%
+        select(subj, fixItem, fix, totalFix, pFix, condition) -> df
+    df$i <- i
+    print(distinct(df))
+}
+
+p_dat <- c()
+for (i in 1:7) {
+    p_dat <- rbind(p_dat, prop[[i]])
+}
+
+p_dat %>%
+    ungroup(subj, fixItem, i) %>%
+    complete(subj, fixItem, i) -> p_dat
+p_dat$fix[is.na(p_dat$fix)] <- 0
+p_dat$pFix[is.na(p_dat$pFix)] <- 0
+p_dat <- subset(p_dat, p_dat$fixItem != "other" & p_dat$fixItem != "dud")
+
+ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(2, 7, 1), limits = c(1.5, 7.5)) + ylim(0, 0.7) + 
+    xlab("countFix") + ylab("Cumulative fixation proportion") + facet_wrap(. ~ condition)
+
+ggplot(subset(p_dat, p_dat$i != 1), aes(x = as.numeric(as.character(condition)), y = pFix, color = fixItem)) + geom_point() +
+    stat_summary(fun.y = "mean", geom = "line") +
+    xlab("Condition") + ylab("Cumulative fixation proportion") + facet_wrap(. ~ i)
