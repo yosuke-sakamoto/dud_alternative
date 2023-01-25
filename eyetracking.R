@@ -1,5 +1,11 @@
 #+ message = F
 # 参加者間の比較・個人差 確信度と判断の一次元化
+# sub03 almost always gives conf of 4
+# duration
+# nFix_aoi
+# fromTrialBegin
+
+
 library(tidyverse)
 library(data.table)
 library(ggh4x)
@@ -19,6 +25,7 @@ dat <- subset(dat, dat$event == "fixation" & dat$conf != 0) # conf should be NA
 dat$condition <- as.factor(dat$condition)
 dat$fixItem <- factor(dat$fixItem, levels = c("target", "distractor", "dud", "other"))
 dat$chosenItem <- factor(dat$chosenItem, levels = c("target", "distractor", "dud"))
+dat %>% group_by(subj) %>% mutate(conf_normalized = scale(conf)) -> dat # subject-wise normalization of confidence 
 
 
 #'# subject-wise fixation plot
@@ -251,3 +258,143 @@ ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
 ggplot(subset(p_dat, p_dat$i != 1), aes(x = as.numeric(as.character(condition)), y = pFix, color = fixItem)) + geom_point() +
     stat_summary(fun.y = "mean", geom = "line") +
     xlab("Condition") + ylab("Cumulative fixation proportion") + facet_wrap(. ~ i)
+
+
+#'# nFix_target, nFix_distractorの両者で反応正誤を説明
+hist(dat$nFix_target)
+hist(dat$nFix_distractor)
+
+# condition aggregated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3),
+       aes(x = nFix_target, , y = corr, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 0.3)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5))
+
+f1 <- glm(corr ~ nFix_target * nFix_distractor, family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f1)
+Anova(f1)
+plot(ggpredict(f1, terms = c("nFix_target", "nFix_distractor")))
+
+f2 <- glm(corr ~ nFix_target * factor(nFix_distractor), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f2)
+Anova(f2)
+plot(ggpredict(f2, terms = c("nFix_target", "nFix_distractor")))
+
+
+# condition separated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3),
+       aes(x = nFix_target, , y = corr, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 1.2)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5)) + facet_wrap(. ~ condition)
+
+f3 <- glm(corr ~ nFix_target * nFix_distractor * factor(condition), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f3)
+Anova(f3)
+plot(ggpredict(f3, terms = c("nFix_target", "nFix_distractor", "condition")))
+
+f4 <- glm(corr ~ nFix_target * factor(nFix_distractor) * factor(condition), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f4)
+Anova(f4)
+plot(ggpredict(f4, terms = c("nFix_target", "nFix_distractor", "condition")))
+
+
+#'# nFix_target, nFix_distractorの両者で確信度を説明
+hist(dat$nFix_target)
+hist(dat$nFix_distractor)
+hist(dat$conf)
+
+# condition aggregated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3),
+       aes(x = nFix_target, , y = conf, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 0.3)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5)) + facet_wrap(. ~ chosenItem)
+f1 <- glm(corr ~ nFix_target * nFix_distractor, family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f1)
+Anova(f1)
+plot(ggpredict(f1, terms = c("nFix_target", "nFix_distractor")))
+
+f2 <- glm(corr ~ nFix_target * factor(nFix_distractor), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f2)
+Anova(f2)
+plot(ggpredict(f2, terms = c("nFix_target", "nFix_distractor")))
+
+
+# condition separated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3),
+       aes(x = nFix_target, , y = corr, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 1.2)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5)) + facet_wrap(. ~ condition)
+
+f3 <- glm(corr ~ nFix_target * nFix_distractor * factor(condition), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f3)
+Anova(f3)
+plot(ggpredict(f3, terms = c("nFix_target", "nFix_distractor", "condition")))
+
+f4 <- glm(corr ~ nFix_target * factor(nFix_distractor) * factor(condition), family = binomial, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3))
+summary(f4)
+Anova(f4)
+plot(ggpredict(f4, terms = c("nFix_target", "nFix_distractor", "condition")))
+
+
+#'# nFix_target, nFix_distractorの両者で標準化された確信度を説明
+hist(dat$nFix_target)
+hist(dat$nFix_distractor)
+hist(dat$conf_normalized)
+
+# condition aggregated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & dat$subj != "sub03"), # sub03 almost always gives conf of 4
+       aes(x = nFix_target, , y = conf_normalized, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 0.3)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5)) + 
+    ylim(-3, 3) + facet_wrap(. ~ chosenItem)
+
+f5 <- lm(conf_normalized ~ nFix_target * nFix_distractor * chosenItem, 
+          data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & 
+                            dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f5)
+Anova(f5)
+plot(ggpredict(f5, terms = c("nFix_target", "nFix_distractor", "chosenItem")))
+
+f6 <- lm(conf_normalized ~ nFix_target * factor(nFix_distractor) * chosenItem, 
+         data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & 
+                           dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f6)
+Anova(f6)
+plot(ggpredict(f6, terms = c("nFix_target", "nFix_distractor", "chosenItem")))
+
+
+# condition separated
+ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & 
+                  dat$chosenItem != "dud" & dat$subj != "sub03"), # sub03 almost always gives conf of 4
+       aes(x = nFix_target, , y = conf_normalized, color = factor(nFix_distractor))) + 
+    geom_count(position = position_dodge(width = 0.3)) +
+    stat_summary(fun.y = "mean", geom = "line") +
+    scale_x_continuous(breaks = seq(0, 3, 1), limits = c(-0.5, 3.5)) + 
+    ylim(-3, 3) + facet_nested(. ~ chosenItem + condition)
+
+f7 <- lm(conf_normalized ~ nFix_target * nFix_distractor * chosenItem * factor(condition), 
+         data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & 
+                           dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f7)
+Anova(f7)
+plot(ggpredict(f7, terms = c("nFix_target", "nFix_distractor", "chosenItem", "condition")))
+
+f8 <- lm(conf_normalized ~ nFix_target * factor(nFix_distractor) * chosenItem * factor(condition), 
+         data = subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3 & 
+                           dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f8)
+Anova(f8)
+plot(ggpredict(f8, terms = c("nFix_target", "nFix_distractor", "chosenItem", "condition")))
