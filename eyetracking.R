@@ -1,10 +1,6 @@
 #+ message = F
 # 参加者間の比較・個人差 確信度と判断の一次元化
 # sub03 almost always gives conf of 4
-# duration
-# nFix_aoi
-# fromTrialBegin
-
 
 library(tidyverse)
 library(data.table)
@@ -26,14 +22,17 @@ dat$condition <- as.factor(dat$condition)
 dat$fixItem <- factor(dat$fixItem, levels = c("target", "distractor", "dud", "other"))
 dat$chosenItem <- factor(dat$chosenItem, levels = c("target", "distractor", "dud"))
 dat %>% group_by(subj) %>% mutate(conf_normalized = scale(conf)) -> dat # subject-wise normalization of confidence 
-
+dat %>% mutate(q_dur_distractor = ifelse(dur_distractor > quantile(dur_distractor)[4], 0.75,
+                                  ifelse(dur_distractor <= quantile(dur_distractor)[4] & dur_distractor > quantile(dur_distractor)[3], 0.5,
+                                  ifelse(dur_distractor <= quantile(dur_distractor)[3] & dur_distractor > quantile(dur_distractor)[2], 0.25, 0)))) -> dat
+dat %>% mutate(tdDurationRatio = dur_target/dur_distractor) -> dat
+                                                              
 
 #'# subject-wise fixation plot
 plot1 <- foreach(i = unique(dat$subj), .packages = c("tidyverse", "ggh4x")) %dopar% {
     subset(dat, dat$subj == i) %>%
         ggplot() + geom_point(aes(x = x, y = y, size = dur, color = condition), alpha = 0.3) + 
-        facet_nested(. ~ targetPos + dudPos) + ggtitle(i) -> p
-    print(p)
+        facet_nested(. ~ targetPos + dudPos) + ggtitle(i) %>% print()
 }
 plot1
 
@@ -49,8 +48,7 @@ plot2 <- foreach(i = unique(freq$condition), .packages = c("tidyverse", "ggh4x")
         geom_violin(aes(x = fixItem, y = n, color = fixItem)) + 
         geom_point(aes(x = fixItem, y = n, color = fixItem)) + 
         theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-        facet_nested(. ~ targetPos + dudPos) + ggtitle(i)
-    print(p)
+        facet_nested(. ~ targetPos + dudPos) + ggtitle(i) %>% print()
 }
 plot2
 
@@ -168,7 +166,7 @@ ggplot(fd6) + geom_violin(aes(x = factor(conf), y = tfpt, color = chosenItem)) +
 
 
 #'# fixation dynamics
-prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+p_dat <- foreach(i = 1:7, .combine = rbind, .packages = "tidyverse") %dopar% {
     dat %>% filter(event == "fixation" & countFix <= i) %>%
         group_by(subj, condition) %>%
         mutate(totalFix = n()) %>%
@@ -177,11 +175,6 @@ prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
         select(subj, fixItem, fix, totalFix, pFix, condition) -> df
     df$i <- i
     print(distinct(df))
-}
-
-p_dat <- c()
-for (i in 1:7) {
-    p_dat <- rbind(p_dat, prop[[i]])
 }
 
 p_dat %>%
@@ -263,6 +256,7 @@ ggplot(subset(p_dat, p_dat$i != 1), aes(x = as.numeric(as.character(condition)),
 #'# nFix_target, nFix_distractorの両者で反応正誤を説明
 hist(dat$nFix_target)
 hist(dat$nFix_distractor)
+cor(dat$nFix_target, dat$nFix_distractor)
 
 # condition aggregated
 ggplot(subset(dat, dat$nFix_target <= 3 & dat$nFix_distractor <= 3),
@@ -398,3 +392,104 @@ f8 <- lm(conf_normalized ~ nFix_target * factor(nFix_distractor) * chosenItem * 
 summary(f8)
 Anova(f8)
 plot(ggpredict(f8, terms = c("nFix_target", "nFix_distractor", "chosenItem", "condition")))
+
+
+#'# dur_target, dur_distractorの両者で反応正誤を説明
+hist(dat$dur_target)
+hist(dat$dur_distractor)
+plot(dat$dur_target, dat$dur_distractor)
+cor(dat$dur_target, dat$dur_distractor)
+
+# condition aggregated
+ggplot(dat, aes(x = dur_target, y = corr, color = factor(q_dur_distractor))) + 
+    geom_count(alpha = 0.5) + stat_smooth() +
+    scale_x_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1))
+f9 <- glm(corr ~ dur_target * dur_distractor, family = binomial, data = dat)
+summary(f9)
+Anova(f9)
+plot(ggpredict(f9, terms = c("dur_target", "dur_distractor")))
+
+f10 <- glm(corr ~ dur_target * factor(q_dur_distractor), data = dat)
+summary(f10)
+Anova(f10)
+plot(ggpredict(f10, terms = c("dur_target", "q_dur_distractor")))
+
+
+# condition separated
+ggplot(dat, aes(x = dur_target, y = corr, color = factor(q_dur_distractor))) + 
+    geom_count(alpha = 0.5) + stat_smooth() +
+    scale_x_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) + facet_wrap(. ~ condition)
+
+f11 <- glm(corr ~ dur_target * dur_distractor * factor(condition), family = binomial, data = dat)
+summary(f11)
+Anova(f11)
+plot(ggpredict(f11, terms = c("dur_target", "dur_distractor", "condition")))
+
+f12 <- glm(corr ~ dur_target * factor(q_dur_distractor) * factor(condition), data = dat)
+summary(f12)
+Anova(f12)
+plot(ggpredict(f12, terms = c("dur_target", "q_dur_distractor", "condition")))
+
+#'# dur_target, dur_distractorの両者で標準化された確信度を説明
+hist(dat$dur_target)
+hist(dat$dur_distractor)
+hist(dat$conf_normalized)
+
+# condition aggregated
+ggplot(subset(dat, dat$conf_normalized > -3), aes(x = dur_target, y = conf_normalized, color = factor(q_dur_distractor))) + 
+    geom_count(alpha = 0.5) + stat_smooth(size = 1.2) +
+    scale_x_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) + ylim(-3, 3) + facet_wrap(. ~ chosenItem)
+
+f13 <- lm(conf_normalized ~ dur_target * dur_distractor * chosenItem, 
+         data = subset(dat, dat$conf_normalized > -3 & 
+                           dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f13)
+Anova(f13)
+plot(ggpredict(f13, terms = c("dur_target", "dur_distractor", "chosenItem")))
+
+f14 <- lm(conf_normalized ~ dur_target * factor(q_dur_distractor) * chosenItem, 
+         data = subset(dat, dat$conf_normalized > -3 & 
+                           dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f14)
+Anova(f14)
+plot(ggpredict(f14, terms = c("dur_target", "q_dur_distractor", "chosenItem")))
+
+
+# condition separated
+ggplot(subset(dat, dat$conf_normalized > -3 & dat$chosenItem != "dud"), aes(x = dur_target, y = conf_normalized, color = factor(q_dur_distractor))) + 
+    geom_count(alpha = 0.5) + stat_smooth(size = 1.2) +
+    scale_x_continuous(breaks = seq(0, 0.6, 0.2), limits = c(0, 0.6)) + ylim(-3, 3) + facet_nested(. ~ chosenItem + condition)
+
+f15 <- lm(conf_normalized ~ dur_target * dur_distractor * chosenItem * factor(condition), 
+          data = subset(dat, dat$conf_normalized > -3 & 
+                            dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f15)
+Anova(f15)
+plot(ggpredict(f15, terms = c("dur_target", "dur_distractor", "chosenItem", "condition")))
+
+f16 <- lm(conf_normalized ~ dur_target * factor(q_dur_distractor) * chosenItem * factor(condition), 
+          data = subset(dat, dat$conf_normalized > -3 & 
+                            dat$chosenItem != "dud" & dat$subj != "sub03"))
+summary(f16)
+Anova(f16)
+plot(ggpredict(f16, terms = c("dur_target", "q_dur_distractor", "chosenItem", "condition")))
+
+
+#'# first fixation item
+dat %>%
+    group_by(subj, condition, chosenItem, firstFixItem) %>%
+    summarise(n = n()) %>%
+    ungroup(subj, condition, chosenItem) %>%
+    complete(subj, condition, chosenItem) %>%
+    ggplot(., aes(x = as.numeric(as.character(condition)), y = n, color = firstFixItem)) + 
+    geom_point() + stat_summary(fun.y = "mean", geom = "line") + ggtitle("Number of first fixation")
+
+
+#'# first fixation item (choice considered)
+dat %>%
+    group_by(subj, condition, chosenItem, firstFixItem) %>%
+    summarise(n = n()) %>%
+    ungroup(subj, condition, chosenItem) %>%
+    complete(subj, condition, chosenItem) %>%
+    ggplot(., aes(x = as.numeric(as.character(condition)), y = n, color = firstFixItem)) + 
+    geom_point() + stat_summary(fun.y = "mean", geom = "line") + ggtitle("Number of first fixation") + facet_wrap(. ~ chosenItem)
