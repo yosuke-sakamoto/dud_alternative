@@ -120,12 +120,12 @@ chisq <- function(par, dat1){
 
 #maximize objective function
 fit_dnm <- function(dat_behav){
-  init_par <- c(0.001, 0.05, 20, 0.01)
+  init_par <- c(0.001, 0.05, 20, 0.1)
   
   fit <- suppressWarnings(optim(par = init_par, fn = chisq, gr = NULL, 
                                 method = "L-BFGS-B", dat1 = dat_behav,
                                 lower = c(10e-6, 10e-4, 5, -0.003), upper = c(10e-1, 1, 100, 5),
-                                control = list("maxit" = 100000, "parscale" = c(10, 10, 10, 1))))
+                                control = list("maxit" = 100000, "parscale" = c(10, 10, 5, 1))))
   
   est <- data.frame(dr = fit$par[1], sigma = fit$par[2], n_dt = fit$par[3], w = fit$par[4], chisq = fit$value)
   return(est)
