@@ -1,6 +1,4 @@
 #+ message = F
-# 参加者間の比較・個人差 確信度と判断の一次元化
-# sub03 almost always gives conf of 4
 
 library(tidyverse)
 library(data.table)
@@ -185,12 +183,12 @@ p_dat$pFix[is.na(p_dat$pFix)] <- 0
 
 ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
     stat_summary(fun.y = "mean", geom = "line", position = position_dodge(width = .9)) +
-    scale_x_continuous(breaks = seq(2, 7, 1), limits = c(1.5, 7.5))
-    + ylab("Cumulative fixation proportion") + facet_wrap(. ~ condition)
+    scale_x_continuous(breaks = seq(2, 7, 1), limits = c(1.5, 7.5)) +
+    ylab("Cumulative fixation proportion") + facet_wrap(. ~ condition)
 
 
 #'# fixation dynamics (exclude other fixations)
-prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+p_dat <- foreach(i = 1:7, .combine = rbind, .packages = "tidyverse") %dopar% {
     dat %>% filter(event == "fixation" & fixItem != "other" & countFix <= i) %>%
         group_by(subj, condition) %>%
         mutate(totalFix = n()) %>%
@@ -199,11 +197,6 @@ prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
         select(subj, fixItem, fix, totalFix, pFix, condition) -> df
     df$i <- i
     print(distinct(df))
-}
-
-p_dat <- c()
-for (i in 1:7) {
-    p_dat <- rbind(p_dat, prop[[i]])
 }
 
 p_dat %>%
@@ -220,7 +213,7 @@ ggplot(p_dat, aes(x = i, y = pFix, color = fixItem)) + geom_point() +
 
 
 #'# fixation dynamics (exclude other and dud fixations)
-prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
+p_dat <- foreach(i = 1:7, .combine = rbind, .packages = "tidyverse") %dopar% {
     dat %>% filter(event == "fixation" & fixItem != "other" & fixItem != "dud" & countFix <= i) %>%
         group_by(subj, condition) %>%
         mutate(totalFix = n()) %>%
@@ -229,11 +222,6 @@ prop <- foreach(i = 1:7, .packages = c("tidyverse", "ggh4x")) %dopar% {
         select(subj, fixItem, fix, totalFix, pFix, condition) -> df
     df$i <- i
     print(distinct(df))
-}
-
-p_dat <- c()
-for (i in 1:7) {
-    p_dat <- rbind(p_dat, prop[[i]])
 }
 
 p_dat %>%
@@ -493,3 +481,117 @@ dat %>%
     complete(subj, condition, chosenItem) %>%
     ggplot(., aes(x = as.numeric(as.character(condition)), y = n, color = firstFixItem)) + 
     geom_point() + stat_summary(fun.y = "mean", geom = "line") + ggtitle("Number of first fixation") + facet_wrap(. ~ chosenItem)
+
+
+#'# gaze shift (この三変数を使ってチョイスを予測)
+hist(dat$gazeShift_total)
+
+dat %>%
+    group_by(subj, condition) %>%
+    summarize(m_gazeShift_target_distractor = mean(gazeShift_target_distractor),
+              m_gazeShift_distractor_dud = mean(gazeShift_distractor_dud),
+              m_gazeShift_target_dud = mean(gazeShift_target_dud),
+              m_gazeShift_total = mean(gazeShift_total)) %>%
+    ungroup(subj, condition) %>%
+    complete(subj, condition) %>%
+    mutate_all(~replace(., is.na(.), 0)) -> gaze_dat
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_total)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar")
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_distractor)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar")
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_distractor_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar")
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar")
+
+
+#'# gaze shift (choice considered)
+dat %>%
+    group_by(subj, chosenItem, condition) %>%
+    summarize(m_gazeShift_target_distractor = mean(gazeShift_target_distractor),
+           m_gazeShift_distractor_dud = mean(gazeShift_distractor_dud),
+           m_gazeShift_target_dud = mean(gazeShift_target_dud),
+           m_gazeShift_total = mean(gazeShift_total)) %>%
+    ungroup(subj, chosenItem, condition) %>%
+    complete(subj, chosenItem, condition) %>%
+    mutate_all(~replace(., is.na(.), 0)) -> gaze_dat
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_total)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ chosenItem)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_distractor)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ chosenItem)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_distractor_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ chosenItem)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ chosenItem)
+
+
+#'# gaze shift (confidence considered)
+dat %>%
+    group_by(subj, conf, condition) %>%
+    summarize(m_gazeShift_target_distractor = mean(gazeShift_target_distractor),
+              m_gazeShift_distractor_dud = mean(gazeShift_distractor_dud),
+              m_gazeShift_target_dud = mean(gazeShift_target_dud),
+              m_gazeShift_total = mean(gazeShift_total)) %>%
+    ungroup(subj, conf, condition) %>%
+    complete(subj, conf, condition) %>%
+    mutate_all(~replace(., is.na(.), 0)) -> gaze_dat
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_total)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_distractor)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_distractor_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf)
+
+
+#'# gaze shift (choice and confidence considered)
+dat %>%
+    group_by(subj, chosenItem, conf, condition) %>%
+    summarize(m_gazeShift_target_distractor = mean(gazeShift_target_distractor),
+              m_gazeShift_distractor_dud = mean(gazeShift_distractor_dud),
+              m_gazeShift_target_dud = mean(gazeShift_target_dud),
+              m_gazeShift_total = mean(gazeShift_total)) %>%
+    ungroup(subj, chosenItem, conf, condition) %>%
+    complete(subj, chosenItem, conf, condition) %>%
+    mutate_all(~replace(., is.na(.), 0)) -> gaze_dat
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_total)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf + chosenItem, nrow = 4)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_distractor)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf + chosenItem, nrow = 4)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_distractor_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf + chosenItem, nrow = 4)
+
+ggplot(gaze_dat, aes(x = condition, y = m_gazeShift_target_dud)) + 
+    geom_point(position = position_dodge(width = 0.3)) + ylim(0, 2.5) +
+    stat_summary(fun.y = "mean", geom = "crossbar") + facet_wrap(. ~ conf + chosenItem, nrow = 4)
