@@ -1,4 +1,4 @@
-# import library
+# import library 高速化必要
 library(tidyverse)
 library(doParallel)
 library(dplyr)
@@ -21,18 +21,18 @@ chisq <- function(par, dat1){
     n_dt  <- par[3]
     w     <- par[4]
     
-    dat1$rt <- dat1$rt * 100
+    dat1$rt <- dat1$rt
     rt_q <- quantile(dat1$rt, probs = c(0.1, 0.3, 0.5, 0.7, 0.9))
     th <- 1
-    Sample <- 300
+    Sample <- 3000
     chisq_stats <- c()
     
-    for (c in unique(dat1$condition)){
+    for (c in unique(dat1$condition)) {
         
         dat2 <- filter(dat1, condition == c)
         dudVal <- unique(dat2$val3)
         
-        d <- foreach (i = 1:nrow(dat2), .combine = "rbind", .packages = "tidyverse") %dopar% {
+        d <- foreach(i = 1:nrow(dat2), .combine = "rbind", .packages = "tidyverse") %dopar% {
             Stimulus <- c(100, 90, dudVal)
             Stimulus <- Stimulus / (1 + w * sum(Stimulus))
             Stimulus <- Stimulus * dr
@@ -58,8 +58,9 @@ chisq <- function(par, dat1){
         d <- as.data.frame(d)
         colnames(d) <- c("rt", "choice")
         d$rt   <- d$rt + n_dt
-        d$rt[d$rt > 300] <- NA
+        d$rt[d$rt > 3000] <- NA
         d <- na.omit(d)
+        d$rt <- d$rt/1000
         
         d_tar  <- filter(d, choice == 1)
         d_dist <- filter(d, choice == 2)
@@ -115,24 +116,25 @@ chisq <- function(par, dat1){
         chisq_stats <- c(chisq_stats, sum(chisq_cond))
     }
     
-    return (sum(chisq_stats))
+    return(sum(chisq_stats))
 }
 
 #maximize objective function
 fit_dnm <- function(dat_behav){
-    init_par <- c(0.001, 0.05, 20, 0.1)
+    init_par <- c(0.0001, 0.05, 250, -0.002)
     
     fit <- suppressWarnings(optim(par = init_par, fn = chisq, gr = NULL, 
                                   method = "L-BFGS-B", dat1 = dat_behav,
-                                  lower = c(10e-6, 10e-4, 5, -0.003), upper = c(10e-1, 1, 100, 5),
-                                  control = list("maxit" = 100000, "parscale" = c(10, 10, 5, 1))))
+                                  lower = c(10e-5, 10e-3, 100, -0.03), upper = c(10e-3, 0.5, 400, 0.05),
+                                  control = list("maxit" = 100000, "parscale" = c(0.01, 5, 2, 0.5))))
     
     est <- data.frame(dr = fit$par[1], sigma = fit$par[2], n_dt = fit$par[3], w = fit$par[4], chisq = fit$value)
     return(est)
 }
 
 
-####
+#### 1789.33 sec elapsed
+#### 1 0.0001009387 0.04150488 297.3796 0.01439338 1053.888
 df_indiv <- filter(df, subj == "sub01")
 
 tictoc::tic()
@@ -143,10 +145,10 @@ tictoc::toc()
 
 
 ########## initial simulaion
-dr    <- 1e-05
-sigma <- 0.001
-n_dt  <- 5
-w     <- 5
+dr    <- 1e-04
+sigma <- 0.05
+n_dt  <- 250
+w     <- 0.005
 
 Trial <- 288
 th <- 1
@@ -178,6 +180,9 @@ d <- foreach(i = 1:Trial, .combine = "rbind", .packages = "tidyverse") %dopar% {
 d <- as.data.frame(d)
 colnames(d) <- c("rt", "choice")
 d$rt   <- d$rt + n_dt
+d$rt[d$rt > 3000] <- NA
+d <- na.omit(d)
+
 
 
 # model visualization
