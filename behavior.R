@@ -12,7 +12,7 @@ d <- fread("exp1_data_behavior.csv", sep = ",", header = T)
 d <- mutate(d, Corr = ifelse(ChosenITM == CorrectITM, 1, 0))
 d$ChoiceRT <- as.numeric(d$ChoiceRT)
 d <- na.omit(d) # 67 trials omitted
-d <- subset(d, d$participant != "sub01") # accuracy below mean - 2sd at Val3 = 63
+# d <- subset(d, d$participant != "sub01") # accuracy below mean - 2sd at Val3 = 63
 
 d1 <- rbind(subset(d, d$UVal < 90 & d$ChosenITM == "up"),
             subset(d, d$LVal < 90 & d$ChosenITM == "left"),
