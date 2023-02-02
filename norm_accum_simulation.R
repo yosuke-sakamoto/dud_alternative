@@ -88,9 +88,12 @@ simdat %>%
     ungroup(choice, condition) %>%
     group_by(condition) %>%
     mutate(n2 = n()) %>%
-    select(n1, n2, choice, condition) %>%
+    dplyr::select(n1, n2, choice, condition) %>%
     distinct() %>%
     mutate(p = n1/n2) %>%
+    ungroup(choice, condition) %>%
+    complete(choice, condition) %>%
+    mutate_all(~replace(., is.na(.), 0)) %>%
     ggplot() + geom_line(aes(x = condition, y = p, color = factor(choice))) +
     scale_x_continuous(breaks = c(0, 27, 45, 63, 76, 86)) -> p2
 p2
